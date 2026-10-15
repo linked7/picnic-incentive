@@ -90,6 +90,16 @@ python -m pytest
 
 `"coop*6,freerider,exploiter"` means six coops, one free-rider and one exploiter (8 settlers).
 
+### Visualiser
+
+`docs/index.html` is a single page you can open in a browser. It replays rounds ACT by ACT (who mined, farmed, recycled, starved or lost the pod lottery) and charts the v1 / v1.1 / v2 results. Rebuild it after changing the model:
+
+```bash
+python experiments/export_viz.py --html
+```
+
+If GitHub Pages is turned on for the `docs/` folder, the page is also served there.
+
 ### Optional LLM agent
 
 ```bash
