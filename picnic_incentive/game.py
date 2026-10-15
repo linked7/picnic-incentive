@@ -55,7 +55,9 @@ class GameResult:
 
 
 def play_round(rules: Rules, agents: list, world: World, rng: random.Random,
-               round_no: int) -> dict:
+               round_no: int, trace: list | None = None) -> dict:
+    """Play one round. If `trace` is a list, a record of every ACT is appended to it
+    (who did what, who fed whom, who died and why) for replays and visualisation."""
     n = len(agents)
     alive = [True] * n
     cause = [None] * n                 # "desert", "starved" or "no pod"
@@ -80,11 +82,13 @@ def play_round(rules: Rules, agents: list, world: World, rng: random.Random,
 
         # 2. resolve actions in player order
         farmers = []
+        died = {}
         for i, action in choices.items():
             ev = {"action": action, "delivered": 0, "net": 0, "food_given": 0}
             if action == "MINE":
                 if rng.random() < world.desert_risk:
                     alive[i], cause[i] = False, "desert"
+                    died[i] = "desert"
                 else:
                     stockpile += 1
                     ev["delivered"] = ev["net"] = 1
@@ -99,10 +103,17 @@ def play_round(rules: Rules, agents: list, world: World, rng: random.Random,
         # 3. eating: farmers feed themselves, spare food goes to the hungry
         hungry = [i for i in choices if alive[i] and i not in farmers]
         rng.shuffle(hungry)
+        fed_by = {}
         for giver, receiver in zip(farmers, hungry):
             acts[giver][-1]["food_given"] = 1
+            fed_by[receiver] = giver
         for i in hungry[len(farmers):]:   # nobody had spare food for these
             alive[i], cause[i] = False, "starved"
+            died[i] = "starved"
+
+        if trace is not None:
+            trace.append({"act": act, "choices": [choices.get(i) for i in range(n)],
+                          "fed_by": fed_by, "died": died, "stockpile": stockpile})
 
         last_actions = [choices.get(i) for i in range(n)]
 
@@ -113,6 +124,9 @@ def play_round(rules: Rules, agents: list, world: World, rng: random.Random,
     for i in living:
         if i not in winners:
             alive[i], cause[i] = False, "no pod"
+    if trace is not None:
+        trace.append({"storm": True, "pods": pods, "winners": sorted(winners),
+                      "no_pod": [i for i in living if i not in winners]})
     survival_fraction = len(winners) / n
 
     # 5. Stickers, and feedback to the agents
@@ -134,7 +148,8 @@ def play_round(rules: Rules, agents: list, world: World, rng: random.Random,
 
 
 def run_game(rules: Rules, agents: list, rounds: int = 20, seed: int = 0,
-             world: World | None = None, verbose: bool = False) -> GameResult:
+             world: World | None = None, verbose: bool = False,
+             record: bool = False) -> GameResult:
     """Play several rounds with the same agents and return everything that happened."""
     world = world or World()
     rng = random.Random(seed)           # world randomness (desert, food order, pods)
@@ -144,7 +159,10 @@ def run_game(rules: Rules, agents: list, rounds: int = 20, seed: int = 0,
     result = GameResult(rules=rules.name, agent_names=[a.name for a in agents],
                         n_players=len(agents))
     for r in range(1, rounds + 1):
-        info = play_round(rules, agents, world, rng, r)
+        trace = [] if record else None
+        info = play_round(rules, agents, world, rng, r, trace)
+        if record:
+            info["trace"] = trace
         result.rounds.append(info)
         if verbose:
             print(f"round {r:3d} | lithium {info['lithium']:2d} pods {info['pods']} "
