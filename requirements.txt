@@ -1,0 +1,8 @@
+# The game, CLI and experiment script use only the Python standard library (3.10+).
+
+# For running the tests:
+pytest
+
+# Optional extras (uncomment if you want them):
+# anthropic     # only for the optional `llm` agent; also needs ANTHROPIC_API_KEY
+# matplotlib    # only for `experiments/compare_rules.py --plot`
